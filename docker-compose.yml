@@ -1,28 +1,34 @@
 version: "3.9"
 name: media-stack
 services:
-
   # To use/enable VPN, Run this compose file with --profile=vpn. Its highly recommended to use VPN.
   vpn:
     ## Read https://github.com/qdm12/gluetun-wiki/tree/main/setup/providers for details on configuring VPN for your service provider.
     profiles: ["vpn"]
     container_name: vpn
-    image: qmcgaw/gluetun:v3.40.0
+    image: qmcgaw/gluetun
     cap_add:
       - NET_ADMIN
     environment:
-      - VPN_SERVICE_PROVIDER=${VPN_SERVICE_PROVIDER:-nordvpn} # Valid values: nordvpn, expressvpn, protonvpn, surfshark or custom
-      - OPENVPN_USER=${OPENVPN_USER:-""}
-      - OPENVPN_PASSWORD=${OPENVPN_PASSWORD:-""}
+      - VPN_SERVICE_PROVIDER=protonvpn
+      - VPN_TYPE=wireguard # or wireguard
+      - SERVER_COUNTRIES=Greece
+      - WIREGUARD_PRIVATE_KEY= #2EBlOYCNoARJEttoGcdVu2hlQ3vZ1+6/zKghl/7fQXE=
+      #- VPN_SERVICE_PROVIDER=${VPN_SERVICE_PROVIDER:-nordvpn} # Valid values: nordvpn, expressvpn, protonvpn, surfshark or custom
+      #- OPENVPN_USER=${OPENVPN_USER:-""}
+      #- OPENVPN_PASSWORD=${OPENVPN_PASSWORD:-""}
+      - VPN_PORT_FORWARDING=on
+      - PORT_FORWARD_ONLY=on
+      - VPN_PORT_FORWARDING_UP_COMMAND=/bin/sh -c 'wget -O- --retry-connrefused --post-data "json={\"listen_port\":{{PORTS}}}" http://127.0.0.1:5080/api/v2/app/setPreferences 2>&1'
 
       ## For list of server countries, visit https://raw.githubusercontent.com/qdm12/gluetun/master/internal/storage/servers.json
       ## When VPN_SERVICE_PROVIDER is custom. Comment the below line
-      - SERVER_COUNTRIES=${SERVER_COUNTRIES:-Switzerland}
-    
+      #- SERVER_COUNTRIES=${SERVER_COUNTRIES:-Switzerland}
+
       # - FREE_ONLY=on  # Valid with protonvpn only. Value willbe set "on" if using free subscription provided by protonvpn
 
       ## Enable below if VPN_SERVICE_PROVIDER=custom
-      # - VPN_TYPE=openvpn # or wireguard. 
+      # - VPN_TYPE=openvpn # or wireguard.
 
       ## If VPN_TYPE is openvpn
       # - OPENVPN_CUSTOM_CONFIG=/gluetun/custom.conf
@@ -37,22 +43,22 @@ services:
 
     ## Enable volume if VPN_SERVICE_PROVIDER=custom and VPN_TYPE=openvpn is used
     # volumes:
-      # - /yourpath/yourconfig.conf:/gluetun/config.conf:ro
+    # - /yourpath/yourconfig.conf:/gluetun/config.conf:ro
 
     networks:
       - mynetwork
 
     devices:
       - /dev/net/tun:/dev/net/tun
-      
+
     # Uncomment/enable below ports if VPN is used/enabled
-    # ports:
-    #   # qbittorrent ports
-    #   - 5080:5080
-    #   - 6881:6881
-    #   - 6881:6881/udp
-    #   # prowlarr ports
-    #   - 9696:9696
+    ports:
+      #   # qbittorrent ports
+      - 5080:5080
+      - 6881:6881
+      - 6881:6881/udp
+      # prowlarr ports
+      - 9696:9696
     restart: "unless-stopped"
 
   ## Default credentials of qBittorrent - Username: admin password: adminadmin ##
@@ -63,31 +69,32 @@ services:
     image: lscr.io/linuxserver/qbittorrent:5.0.4
 
     # Unomment below if vpn is enabled
-    # depends_on:               # Uncomment this line if vpn is enabled
-      # vpn:                   # Uncomment this line if vpn is enabled
-      #   condition: service_healthy # Uncomment this line if vpn is enabled
+    depends_on: # Uncomment this line if vpn is enabled
+      vpn: # Uncomment this line if vpn is enabled
+        condition: service_healthy # Uncomment this line if vpn is enabled
 
-    # Comment below lines if VPN is enabled
-    networks:               # Comment this line if vpn is enabled
-      - mynetwork           # Comment this line if vpn is enabled
+    ## Comment below lines if VPN is enabled
+    #networks:               # Comment this line if vpn is enabled
+    #  - mynetwork           # Comment this line if vpn is enabled
 
     # Unomment below line if vpn is enabled
-    # network_mode: service:vpn
+    network_mode: service:vpn
 
     environment:
       - PUID=1000
       - PGID=1000
       - TZ=UTC
       - WEBUI_PORT=5080
+      - TORRENTING_PORT=6881
     volumes:
-      - qbittorrent-config:/config
-      - torrent-downloads:/downloads
+      - /srv/dev-disk-by-uuid-9dbad1aa-21b3-4f25-ae31-9d91d0e278d5/jasonHome/raspberryTools/media-stack-raspberry/qbittorrent-config:/config
+      - /srv/dev-disk-by-uuid-9dbad1aa-21b3-4f25-ae31-9d91d0e278d5/jasonHome/raspberryTools/media-stack-raspberry/torrent-downloads:/downloads
 
     ## Comment/Disable below ports if VPN is enabled
-    ports:
-      - 5080:5080
-      - 6881:6881
-      - 6881:6881/udp
+    #ports:
+    #  - 5080:5080
+    #  - 6881:6881
+    #  - 6881:6881/udp
     restart: "unless-stopped"
 
   radarr:
@@ -95,10 +102,10 @@ services:
     container_name: radarr
     image: lscr.io/linuxserver/radarr:5.21.1
     networks:
-      - mynetwork   # Comment this line if VPN is enabled
-    ## Uncomment below lines if VPN is enabled
-    #   mynetwork:
-    #     ipv4_address: ${RADARR_STATIC_CONTAINER_IP} # It should be available IPv4 address in range of docker network `mynetwork` e.g. 172.20.0.2
+      # - mynetwork   # Comment this line if VPN is enabled
+      ## Uncomment below lines if VPN is enabled
+      mynetwork:
+        ipv4_address: ${RADARR_STATIC_CONTAINER_IP} # It should be available IPv4 address in range of docker network `mynetwork` e.g. 172.20.0.2
     environment:
       - PUID=1000
       - PGID=1000
@@ -106,8 +113,8 @@ services:
     ports:
       - 7878:7878
     volumes:
-      - radarr-config:/config
-      - torrent-downloads:/downloads
+      - /srv/dev-disk-by-uuid-9dbad1aa-21b3-4f25-ae31-9d91d0e278d5/jasonHome/raspberryTools/media-stack-raspberry/radarr-config:/config
+      - /srv/dev-disk-by-uuid-9dbad1aa-21b3-4f25-ae31-9d91d0e278d5/jasonHome/raspberryTools/media-stack-raspberry/torrent-downloads:/downloads
     restart: "unless-stopped"
 
   sonarr:
@@ -115,17 +122,17 @@ services:
     image: linuxserver/sonarr:4.0.14
     container_name: sonarr
     networks:
-      - mynetwork   # Comment this line if VPN is enabled
-    ## Uncomment below lines if VPN is enabled
-    #   mynetwork:
-    #     ipv4_address: ${SONARR_STATIC_CONTAINER_IP} # It should be available IPv4 address in range of docker network `mynetwork` e.g. 172.20.0.2
+      #  - mynetwork   # Comment this line if VPN is enabled
+      ## Uncomment below lines if VPN is enabled
+      mynetwork:
+        ipv4_address: ${SONARR_STATIC_CONTAINER_IP} # It should be available IPv4 address in range of docker network `mynetwork` e.g. 172.20.0.2
     environment:
       - PUID=1000
       - PGID=1000
       - TZ=UTC
     volumes:
-      - sonarr-config:/config
-      - torrent-downloads:/downloads
+      - /srv/dev-disk-by-uuid-9dbad1aa-21b3-4f25-ae31-9d91d0e278d5/jasonHome/raspberryTools/media-stack-raspberry/sonarr-config:/config
+      - /srv/dev-disk-by-uuid-9dbad1aa-21b3-4f25-ae31-9d91d0e278d5/jasonHome/raspberryTools/media-stack-raspberry/torrent-downloads:/downloads
     ports:
       - 8989:8989
     restart: unless-stopped
@@ -136,23 +143,23 @@ services:
     image: linuxserver/prowlarr:1.32.2
 
     # Uncomment below if vpn is enabled
-    # depends_on:               # Uncomment this line if vpn is enabled
-      # vpn:                   # Uncomment this line if vpn is enabled
-      #   condition: service_healthy # Uncomment this line if vpn is enabled
-    # network_mode: service:vpn # Uncomment this line if vpn is enabled
+    depends_on: # Uncomment this line if vpn is enabled
+      vpn: # Uncomment this line if vpn is enabled
+        condition: service_healthy # Uncomment this line if vpn is enabled
+    network_mode: service:vpn # Uncomment this line if vpn is enabled
 
-    networks:               # Comment this line if vpn is enabled
-      - mynetwork           # Comment this line if vpn is enabled
+    #networks:               # Comment this line if vpn is enabled
+    #  - mynetwork           # Comment this line if vpn is enabled
     environment:
       - PUID=1000
       - PGID=1000
       - TZ=UTC
     volumes:
-      - prowlarr-config:/config
+      - /srv/dev-disk-by-uuid-9dbad1aa-21b3-4f25-ae31-9d91d0e278d5/jasonHome/raspberryTools/media-stack-raspberry/prowlarr-config:/config
 
     # Comment below ports if VPN is enabled.
-    ports:
-      - 9696:9696
+    #ports:
+    #  - 9696:9696
     restart: unless-stopped
 
   recommendarr:
@@ -167,7 +174,7 @@ services:
       - PORT=3000
       - PUBLIC_URL=https://localhost:3000 # Change this public URL if you are accessing recommendarr on a domain
     volumes:
-      - recommendarr-data:/app/server/data
+      - /srv/dev-disk-by-uuid-9dbad1aa-21b3-4f25-ae31-9d91d0e278d5/jasonHome/raspberryTools/media-stack-raspberry/recommendarr-data:/app/server/data
     ports:
       - 3000:3000
     restart: unless-stopped
@@ -183,7 +190,7 @@ services:
       - PGID=1000
       - TZ=UTC
     volumes:
-      - jellyseerr-config:/app/config
+      - /srv/dev-disk-by-uuid-9dbad1aa-21b3-4f25-ae31-9d91d0e278d5/jasonHome/raspberryTools/media-stack-raspberry/jellyseerr-config:/app/config
     ports:
       - 5055:5055
     restart: unless-stopped
@@ -199,17 +206,16 @@ services:
       - PGID=1000
       - TZ=UTC
     volumes:
-      - jellyfin-config:/config
-      - torrent-downloads:/data
-  # devices:
-   #  - /dev/videoN:/dev/videoN # Mount GPU device 
+      - /srv/dev-disk-by-uuid-9dbad1aa-21b3-4f25-ae31-9d91d0e278d5/jasonHome/raspberryTools/media-stack-raspberry/jellyfin-config:/config
+      - /srv/dev-disk-by-uuid-9dbad1aa-21b3-4f25-ae31-9d91d0e278d5/jasonHome/raspberryTools/media-stack-raspberry/torrent-downloads:/data
+    # devices:
+    #  - /dev/videoN:/dev/videoN # Mount GPU device
     ports:
       - 8096:8096
       - 7359:7359/udp
       - 8920:8920
     restart: unless-stopped
-  
-  
+
   # Doc: https://github.com/navilg/cleanmyarr
   # cleanmyarr:
   #   profiles: ["vpn", "no-vpn"]
@@ -222,24 +228,24 @@ services:
   #     - mynetwork
   #   volumes:
   #     - cleanmyarr-config:/config
-    # restart: unless-stopped
-    # environment:
-    # - CMA_MAINTENANCE_CYCLE=${CMA_MAINTENANCE_CYCLE:-""}
-    # - CMA_DELETE_AFTER_DAYS=${CMA_DELETE_AFTER_DAYS:-""}
-    # - CMA_ENABLE_EMAIL_NOTIFICATION=${CMA_ENABLE_EMAIL_NOTIFICATION:-""}
-    # - CMA_SMTP_USERNAME=${CMA_SMTP_USERNAME:-""}
-    # - CMA_SMTP_ENCODED_PASSWORD=${CMA_SMTP_ENCODED_PASSWORD:-""}
-    # - CMA_SMTP_TO_EMAILS=${CMA_SMTP_TO_EMAILS:-""}
-    # - CMA_ENABLE_GOTIFY_NOTIFICATION=${CMA_ENABLE_GOTIFY_NOTIFICATION:-""}
-    # - CMA_GOTIFY_URL=${CMA_GOTIFY_URL:-""}
-    # - CMA_GOTIFY_ENCODED_APP_TOKEN=${CMA_GOTIFY_ENCODED_APP_TOKEN:-""}
-    # - CMA_ENABLE_TELEGRAM_NOTIFICATION=${CMA_ENABLE_TELEGRAM_NOTIFICATION:-""}
-    # - CMA_TELEGRAM_ENCODED_BOT_TOKEN=${CMA_TELEGRAM_ENCODED_BOT_TOKEN:-""}
-    # - CMA_TELEGRAM_CHAT_ID=${CMA_TELEGRAM_CHAT_ID:-""}
-    # - CMA_MONITOR_RADARR=${CMA_MONITOR_RADARR:-""}
-    # - CMA_RADARR_URL=${CMA_RADARR_URL:-""}
-    # - CMA_RADARR_ENCODED_API_KEY=${CMA_RADARR_ENCODED_API_KEY:-""}
-    # - CMA_RADARR_ENABLE_NOTIFICATION=${CMA_RADARR_ENABLE_NOTIFICATION:-""}
+  # restart: unless-stopped
+  # environment:
+  # - CMA_MAINTENANCE_CYCLE=${CMA_MAINTENANCE_CYCLE:-""}
+  # - CMA_DELETE_AFTER_DAYS=${CMA_DELETE_AFTER_DAYS:-""}
+  # - CMA_ENABLE_EMAIL_NOTIFICATION=${CMA_ENABLE_EMAIL_NOTIFICATION:-""}
+  # - CMA_SMTP_USERNAME=${CMA_SMTP_USERNAME:-""}
+  # - CMA_SMTP_ENCODED_PASSWORD=${CMA_SMTP_ENCODED_PASSWORD:-""}
+  # - CMA_SMTP_TO_EMAILS=${CMA_SMTP_TO_EMAILS:-""}
+  # - CMA_ENABLE_GOTIFY_NOTIFICATION=${CMA_ENABLE_GOTIFY_NOTIFICATION:-""}
+  # - CMA_GOTIFY_URL=${CMA_GOTIFY_URL:-""}
+  # - CMA_GOTIFY_ENCODED_APP_TOKEN=${CMA_GOTIFY_ENCODED_APP_TOKEN:-""}
+  # - CMA_ENABLE_TELEGRAM_NOTIFICATION=${CMA_ENABLE_TELEGRAM_NOTIFICATION:-""}
+  # - CMA_TELEGRAM_ENCODED_BOT_TOKEN=${CMA_TELEGRAM_ENCODED_BOT_TOKEN:-""}
+  # - CMA_TELEGRAM_CHAT_ID=${CMA_TELEGRAM_CHAT_ID:-""}
+  # - CMA_MONITOR_RADARR=${CMA_MONITOR_RADARR:-""}
+  # - CMA_RADARR_URL=${CMA_RADARR_URL:-""}
+  # - CMA_RADARR_ENCODED_API_KEY=${CMA_RADARR_ENCODED_API_KEY:-""}
+  # - CMA_RADARR_ENABLE_NOTIFICATION=${CMA_RADARR_ENABLE_NOTIFICATION:-""}
 
 volumes:
   torrent-downloads:
@@ -255,3 +261,4 @@ volumes:
 networks:
   mynetwork:
     external: true
+#RADARR_STATIC_CONTAINER_IP=172.25.0.101 SONARR_STATIC_CONTAINER_IP=172.25.0.102 docker compose --profile vpn up -d
