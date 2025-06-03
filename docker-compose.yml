@@ -13,7 +13,7 @@ services:
       - VPN_SERVICE_PROVIDER=protonvpn
       - VPN_TYPE=wireguard # or wireguard
       - SERVER_COUNTRIES=Greece
-      - WIREGUARD_PRIVATE_KEY= #2EBlOYCNoARJEttoGcdVu2hlQ3vZ1+6/zKghl/7fQXE=
+      - WIREGUARD_PRIVATE_KEY=
       #- VPN_SERVICE_PROVIDER=${VPN_SERVICE_PROVIDER:-nordvpn} # Valid values: nordvpn, expressvpn, protonvpn, surfshark or custom
       #- OPENVPN_USER=${OPENVPN_USER:-""}
       #- OPENVPN_PASSWORD=${OPENVPN_PASSWORD:-""}
@@ -87,8 +87,8 @@ services:
       - WEBUI_PORT=5080
       - TORRENTING_PORT=6881
     volumes:
-      - /srv/dev-disk-by-uuid-9dbad1aa-21b3-4f25-ae31-9d91d0e278d5/jasonHome/raspberryTools/media-stack-raspberry/qbittorrent-config:/config
-      - /srv/dev-disk-by-uuid-9dbad1aa-21b3-4f25-ae31-9d91d0e278d5/jasonHome/raspberryTools/media-stack-raspberry/torrent-downloads:/downloads
+      - qbittorrent-config:/config
+      - torrent-downloads:/downloads
 
     ## Comment/Disable below ports if VPN is enabled
     #ports:
@@ -113,8 +113,8 @@ services:
     ports:
       - 7878:7878
     volumes:
-      - /srv/dev-disk-by-uuid-9dbad1aa-21b3-4f25-ae31-9d91d0e278d5/jasonHome/raspberryTools/media-stack-raspberry/radarr-config:/config
-      - /srv/dev-disk-by-uuid-9dbad1aa-21b3-4f25-ae31-9d91d0e278d5/jasonHome/raspberryTools/media-stack-raspberry/torrent-downloads:/downloads
+      - radarr-config:/config
+      - torrent-downloads:/downloads
     restart: "unless-stopped"
 
   sonarr:
@@ -131,8 +131,8 @@ services:
       - PGID=1000
       - TZ=UTC
     volumes:
-      - /srv/dev-disk-by-uuid-9dbad1aa-21b3-4f25-ae31-9d91d0e278d5/jasonHome/raspberryTools/media-stack-raspberry/sonarr-config:/config
-      - /srv/dev-disk-by-uuid-9dbad1aa-21b3-4f25-ae31-9d91d0e278d5/jasonHome/raspberryTools/media-stack-raspberry/torrent-downloads:/downloads
+      - sonarr-config:/config
+      - torrent-downloads:/downloads
     ports:
       - 8989:8989
     restart: unless-stopped
@@ -155,7 +155,7 @@ services:
       - PGID=1000
       - TZ=UTC
     volumes:
-      - /srv/dev-disk-by-uuid-9dbad1aa-21b3-4f25-ae31-9d91d0e278d5/jasonHome/raspberryTools/media-stack-raspberry/prowlarr-config:/config
+      - prowlarr-config:/config
 
     # Comment below ports if VPN is enabled.
     #ports:
@@ -174,7 +174,7 @@ services:
       - PORT=3000
       - PUBLIC_URL=https://localhost:3000 # Change this public URL if you are accessing recommendarr on a domain
     volumes:
-      - /srv/dev-disk-by-uuid-9dbad1aa-21b3-4f25-ae31-9d91d0e278d5/jasonHome/raspberryTools/media-stack-raspberry/recommendarr-data:/app/server/data
+      - recommendarr-data:/app/server/data
     ports:
       - 3000:3000
     restart: unless-stopped
@@ -190,7 +190,7 @@ services:
       - PGID=1000
       - TZ=UTC
     volumes:
-      - /srv/dev-disk-by-uuid-9dbad1aa-21b3-4f25-ae31-9d91d0e278d5/jasonHome/raspberryTools/media-stack-raspberry/jellyseerr-config:/app/config
+      - jellyseerr-config:/app/config
     ports:
       - 5055:5055
     restart: unless-stopped
@@ -206,8 +206,8 @@ services:
       - PGID=1000
       - TZ=UTC
     volumes:
-      - /srv/dev-disk-by-uuid-9dbad1aa-21b3-4f25-ae31-9d91d0e278d5/jasonHome/raspberryTools/media-stack-raspberry/jellyfin-config:/config
-      - /srv/dev-disk-by-uuid-9dbad1aa-21b3-4f25-ae31-9d91d0e278d5/jasonHome/raspberryTools/media-stack-raspberry/torrent-downloads:/data
+      - jellyfin-config:/config
+      - torrent-downloads:/data
     # devices:
     #  - /dev/videoN:/dev/videoN # Mount GPU device
     ports:
@@ -261,4 +261,4 @@ volumes:
 networks:
   mynetwork:
     external: true
-#RADARR_STATIC_CONTAINER_IP=172.25.0.101 SONARR_STATIC_CONTAINER_IP=172.25.0.102 docker compose --profile vpn up -d
+#RADARR_STATIC_CONTAINER_IP=172.2.0.101 SONARR_STATIC_CONTAINER_IP=172.20.0.102 docker compose --profile vpn up -d
