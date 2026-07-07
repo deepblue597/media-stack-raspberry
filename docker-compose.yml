@@ -1,4 +1,4 @@
-version: "3.9"
+#version: "3.9"
 name: media-stack
 services:
   # To use/enable VPN, Run this compose file with --profile=vpn. Its highly recommended to use VPN.
@@ -12,8 +12,8 @@ services:
     environment:
       - VPN_SERVICE_PROVIDER=protonvpn
       - VPN_TYPE=wireguard # or wireguard
-      - SERVER_COUNTRIES=Greece
-      - WIREGUARD_PRIVATE_KEY=
+      - SERVER_COUNTRIES=Switzerland
+      - WIREGUARD_PRIVATE_KEY=${WIREGUARD_PRIVATE_KEY}
       #- VPN_SERVICE_PROVIDER=${VPN_SERVICE_PROVIDER:-nordvpn} # Valid values: nordvpn, expressvpn, protonvpn, surfshark or custom
       #- OPENVPN_USER=${OPENVPN_USER:-""}
       #- OPENVPN_PASSWORD=${OPENVPN_PASSWORD:-""}
@@ -47,6 +47,25 @@ services:
 
     networks:
       - mynetwork
+      - proxy
+
+    labels:
+      # qBittorrent reverse proxy through VPN container
+      - "traefik.enable=true"
+      - "traefik.http.routers.qbittorrent.rule=Host(`qbit.deepblue597.org`)"
+      - "traefik.http.routers.qbittorrent.entrypoints=websecure"
+      - "traefik.http.routers.qbittorrent.tls=true"
+      - "traefik.http.routers.qbittorrent.service=qbittorrent"
+      - "traefik.http.services.qbittorrent.loadbalancer.server.port=5080"
+      - "traefik.http.routers.prowlarr.rule=Host(`prowlarr.deepblue597.org`)"
+      - "traefik.http.routers.prowlarr.entrypoints=websecure"
+      - "traefik.http.routers.prowlarr.service=prowlarr"
+      - "traefik.http.services.prowlarr.loadbalancer.server.port=9696"
+      - "traefik.http.routers.slskd.rule=Host(`slskd.deepblue597.org`)"
+      - "traefik.http.routers.slskd.entrypoints=websecure"
+      - "traefik.http.routers.slskd.service=slskd"
+      - "traefik.http.services.slskd.loadbalancer.server.port=5030"
+      - "traefik.docker.network=proxy"
 
     devices:
       - /dev/net/tun:/dev/net/tun
@@ -59,6 +78,10 @@ services:
       - 6881:6881/udp
       # prowlarr ports
       - 9696:9696
+      - 5010:5010
+      # slskd ports
+      - 5030:5030
+      - 50300:50300
     restart: "unless-stopped"
 
   ## Default credentials of qBittorrent - Username: admin password: adminadmin ##
@@ -87,8 +110,9 @@ services:
       - WEBUI_PORT=5080
       - TORRENTING_PORT=6881
     volumes:
-      - qbittorrent-config:/config
-      - torrent-downloads:/downloads
+      - /mnt/mediaSSD/mediaStack/qbittorrent-config:/config
+      - /mnt/media/mediaStack/torrent-downloads:/downloads
+      - /mnt/media/Books:/books
 
     ## Comment/Disable below ports if VPN is enabled
     #ports:
@@ -97,24 +121,51 @@ services:
     #  - 6881:6881/udp
     restart: "unless-stopped"
 
+  mousehole:
+    profiles: ["vpn"]
+    container_name: mousehole
+    image: tmmrtn/mousehole:latest
+    depends_on:
+      vpn:
+        condition: service_healthy
+    network_mode: service:vpn
+    environment:
+      - MOUSEHOLE_AUTH_PASSWORD=${MOUSEHOLE_AUTH_PASSWORD}
+      - MOUSEHOLE_ALLOWED_HOSTS=${MOUSEHOLE_ALLOWED_HOSTS}
+    volumes:
+      - mousehole-data:/srv/mousehole
+    restart: unless-stopped
+
+
+
+
   radarr:
     profiles: ["vpn", "no-vpn"]
     container_name: radarr
-    image: lscr.io/linuxserver/radarr:5.21.1
+    image: lscr.io/linuxserver/radarr:6.1.1 #5.21.1
     networks:
       # - mynetwork   # Comment this line if VPN is enabled
       ## Uncomment below lines if VPN is enabled
       mynetwork:
         ipv4_address: ${RADARR_STATIC_CONTAINER_IP} # It should be available IPv4 address in range of docker network `mynetwork` e.g. 172.20.0.2
+
+      proxy:
+
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.radarr.rule=Host(`radarr.deepblue597.org`)"
+      - "traefik.http.routers.radarr.entrypoints=websecure"
+      - "traefik.http.services.radarr.loadbalancer.server.port=7878"
+      - "traefik.docker.network=proxy"
     environment:
       - PUID=1000
       - PGID=1000
       - TZ=UTC
-    ports:
-      - 7878:7878
+#    ports:
+#      - 7878:7878
     volumes:
-      - radarr-config:/config
-      - torrent-downloads:/downloads
+      - /mnt/mediaSSD/mediaStack/radarr-config:/config
+      - /mnt/media/mediaStack/torrent-downloads:/downloads
     restart: "unless-stopped"
 
   sonarr:
@@ -126,21 +177,166 @@ services:
       ## Uncomment below lines if VPN is enabled
       mynetwork:
         ipv4_address: ${SONARR_STATIC_CONTAINER_IP} # It should be available IPv4 address in range of docker network `mynetwork` e.g. 172.20.0.2
+
+      proxy:
+
+    labels:
+      # qBittorrent reverse proxy through VPN container
+      - "traefik.enable=true"
+      - "traefik.http.routers.sonarr.rule=Host(`sonarr.deepblue597.org`)"
+      - "traefik.http.routers.sonarr.entrypoints=websecure"
+      - "traefik.http.services.sonarr.loadbalancer.server.port=8989"
+      - "traefik.docker.network=proxy"
     environment:
       - PUID=1000
       - PGID=1000
       - TZ=UTC
     volumes:
-      - sonarr-config:/config
-      - torrent-downloads:/downloads
-    ports:
-      - 8989:8989
+      - /mnt/mediaSSD/mediaStack/sonarr-config:/config
+      - /mnt/media/mediaStack/torrent-downloads:/downloads
+ #   ports:
+ #     - 8989:8989
+    restart: unless-stopped
+
+  lidarr:
+    profiles: ["vpn", "no-vpn"]
+    image: lscr.io/linuxserver/lidarr:nightly
+    container_name: lidarr
+    networks:
+      #  - mynetwork   # Comment this line if VPN is enabled
+      ## Uncomment below lines if VPN is enabled
+      mynetwork:
+        ipv4_address: 172.20.0.103 # It should be available IPv4 address in range of docker network `mynetwork` e.g. 172.20.0.2
+      proxy:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.lidarr.rule=Host(`lidarr.deepblue597.org`)"
+      - "traefik.http.routers.lidarr.entrypoints=websecure"
+      - "traefik.http.services.lidarr.loadbalancer.server.port=8686"
+      - "traefik.docker.network=proxy"
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+    volumes:
+      - /mnt/mediaSSD/mediaStack/lidarr-config:/config
+      - /mnt/media/mediaStack/torrent-downloads:/downloads
+      - /mnt/media/mediaStack/music:/music
+      - /mnt/media/mediaStack/slskd:/slskd-downloads
+#    ports:
+#      - 8686:8686
+    restart: unless-stopped
+
+  navidrome:
+    profiles: ["vpn", "no-vpn"]
+    container_name: navidrome
+    image: deluan/navidrome:latest
+    user: "1000:1000"
+    networks:
+      - mynetwork
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.navidrome.rule=Host(`navidrome.deepblue597.org`)"
+      - "traefik.http.routers.navidrome.entrypoints=websecure"
+      - "traefik.http.services.navidrome.loadbalancer.server.port=4533"
+      - "traefik.docker.network=proxy"
+    environment:
+      - ND_LOGLEVEL=info
+    volumes:
+      - /mnt/mediaSSD/mediaStack/navidrome-config:/data
+      - /mnt/media/mediaStack/music:/music:ro
+    restart: unless-stopped
+
+  explo:
+    profiles: ["vpn", "no-vpn"]
+    container_name: explo
+    image: ghcr.io/lumepart/explo:latest
+    networks:
+      - mynetwork
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.explo.rule=Host(`explo.deepblue597.org`)"
+      - "traefik.http.routers.explo.entrypoints=websecure"
+      - "traefik.http.services.explo.loadbalancer.server.port=7288"
+      - "traefik.docker.network=proxy"
+    environment:
+      - TZ=UTC
+      - WEB_UI=true
+      - UI_USERNAME=${EXPLO_UI_USERNAME}
+      - UI_PASSWORD=${EXPLO_UI_PASSWORD}
+    volumes:
+      - /mnt/mediaSSD/mediaStack/explo-config/.env:/opt/explo/.env
+      - /mnt/mediaSSD/mediaStack/explo-config:/opt/explo/config
+      - /mnt/media/mediaStack/music:/data
+    restart: unless-stopped
+
+  aurral:
+    profiles: ["vpn", "no-vpn"]
+    container_name: aurral
+    image: ghcr.io/lklynet/aurral:latest
+    networks:
+      - mynetwork
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.aurral.rule=Host(`aurral.deepblue597.org`)"
+      - "traefik.http.routers.aurral.entrypoints=websecure"
+      - "traefik.http.services.aurral.loadbalancer.server.port=3001"
+      - "traefik.docker.network=proxy"
+    environment:
+      - DOWNLOAD_FOLDER=/app/downloads
+    volumes:
+      - /mnt/mediaSSD/mediaStack/aurral-flows:/app/downloads
+      - /mnt/mediaSSD/mediaStack/aurral-config:/app/backend/data
+    restart: unless-stopped
+
+  # Watches the music library and automatically downloads missing .lrc lyrics from LRCLIB as new albums land.
+  lrcget:
+    profiles: ["vpn", "no-vpn"]
+    container_name: lrcget
+    image: lrcget-cli:patched
+    user: "1000:1000"
+    networks:
+      - mynetwork
+    environment:
+      - LRCGET_DATABASE_PATH=/data/lrcget.db
+      - RUST_LOG=info
+    volumes:
+      - /mnt/mediaSSD/mediaStack/lrcget-config:/data
+      - /mnt/media/mediaStack/music:/music
+    command: ["watch", "/music", "--initial-scan", "--debounce-seconds", "30"]
+    restart: unless-stopped
+
+  slskd:
+    profiles: ["vpn"]
+    container_name: slskd
+    image: ghcr.io/slskd/slskd:latest
+    user: "1000:1000"
+    depends_on:
+      vpn:
+        condition: service_healthy
+    network_mode: service:vpn
+    environment:
+      - SLSKD_REMOTE_CONFIGURATION=true
+      - SLSKD_USERNAME=${SLSKD_USERNAME}
+      - SLSKD_PASSWORD=${SLSKD_PASSWORD}
+      - SLSKD_API_KEY=${SLSKD_API_KEY}
+      - SLSKD_SLSK_USERNAME=${SOULSEEK_USERNAME}
+      - SLSKD_SLSK_PASSWORD=${SOULSEEK_PASSWORD}
+      - SLSKD_DOWNLOADS_DIR=/data/complete
+      - SLSKD_INCOMPLETE_DIR=/data/incomplete
+      - SLSKD_SHARED_DIR=/data/complete
+    volumes:
+      - /mnt/mediaSSD/mediaStack/slskd-config:/app
+      - /mnt/media/mediaStack/slskd:/data
     restart: unless-stopped
 
   prowlarr:
     profiles: ["vpn", "no-vpn"]
     container_name: prowlarr
-    image: linuxserver/prowlarr:1.32.2
+    image: linuxserver/prowlarr:2.3.5 #1.32.2
 
     # Uncomment below if vpn is enabled
     depends_on: # Uncomment this line if vpn is enabled
@@ -155,7 +351,7 @@ services:
       - PGID=1000
       - TZ=UTC
     volumes:
-      - prowlarr-config:/config
+      - /mnt/mediaSSD/mediaStack/prowlarr-config:/config
 
     # Comment below ports if VPN is enabled.
     #ports:
@@ -168,52 +364,105 @@ services:
     image: tannermiddleton/recommendarr:v1.3.0
     networks:
       - mynetwork
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.recommendarr.rule=Host(`recommendarr.deepblue597.org`)"
+      - "traefik.http.routers.recommendarr.entrypoints=websecure"
+      - "traefik.http.services.recommendarr.loadbalancer.server.port=3000"
+      - "traefik.docker.network=proxy"
     environment:
       - NODE_ENV=production
       - DOCKER_ENV=true
       - PORT=3000
-      - PUBLIC_URL=https://localhost:3000 # Change this public URL if you are accessing recommendarr on a domain
+      - PUBLIC_URL=https://recommendarr.deepblue597.org # Change this public URL if you are accessing recommendarr on a domain
     volumes:
-      - recommendarr-data:/app/server/data
-    ports:
-      - 3000:3000
+      - /mnt/mediaSSD/mediaStack/recommendarr-data:/app/server/data
+#    ports:
+#      - 3000:3000
     restart: unless-stopped
 
   jellyseerr:
     profiles: ["vpn", "no-vpn"]
-    image: fallenbagel/jellyseerr:2.5.2
+    image: ghcr.io/seerr-team/seerr:latest
     container_name: jellyseerr
+    init: true
     networks:
       - mynetwork
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.jellyseerr.rule=Host(`jellyseerr.deepblue597.org`)"
+      - "traefik.http.routers.jellyseerr.entrypoints=websecure"
+      - "traefik.http.services.jellyseerr.loadbalancer.server.port=5055"
+      - "traefik.docker.network=proxy"
+
     environment:
       - PUID=1000
       - PGID=1000
       - TZ=UTC
     volumes:
-      - jellyseerr-config:/app/config
-    ports:
-      - 5055:5055
+      - /mnt/mediaSSD/mediaStack/jellyseerr-config:/app/config
+ #   ports:
+ #     - 5055:5055
     restart: unless-stopped
 
   jellyfin:
     profiles: ["vpn", "no-vpn"]
-    image: linuxserver/jellyfin:10.10.6
+    image: linuxserver/jellyfin:10.11.4
     container_name: jellyfin
     networks:
       - mynetwork
+      - proxy
     environment:
       - PUID=1000
       - PGID=1000
       - TZ=UTC
+    labels:
+      - "traefik.enable=true"
+
+      # Force HTTP router
+      - "traefik.http.routers.jellyfin.rule=Host(`jellyfin.deepblue597.org`)"
+      - "traefik.http.routers.jellyfin.entrypoints=websecure"
+
+      # Service
+      - "traefik.http.services.jellyfin.loadbalancer.server.port=8096"
+
+      # IMPORTANT: force correct docker network
+      - "traefik.docker.network=proxy"
     volumes:
-      - jellyfin-config:/config
-      - torrent-downloads:/data
+      - /mnt/mediaSSD/mediaStack/jellyfin-config:/config
+      - /mnt/media/mediaStack/torrent-downloads:/data
     # devices:
     #  - /dev/videoN:/dev/videoN # Mount GPU device
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     ports:
       - 8096:8096
       - 7359:7359/udp
       - 8920:8920
+    restart: unless-stopped
+
+  cross-seed:
+    profiles: ["vpn", "no-vpn"]
+    image: ghcr.io/cross-seed/cross-seed:6.13
+    container_name: cross-seed
+    user: 1000:1000
+    networks:
+      - mynetwork
+    ports:
+      - 2468:2468
+    volumes:
+      - /mnt/mediaSSD/mediaStack/cross-seed-config:/config
+      - /mnt/media/mediaStack/torrent-downloads:/downloads
+      - /mnt/mediaSSD/mediaStack/qbittorrent-config/qBittorrent/BT_backup:/torrents:ro
+    #      - /mnt/mediaSSD/mediaStack/cross-seed-links:/cross-seeds  # Add this line
+    command: daemon
     restart: unless-stopped
 
   # Doc: https://github.com/navilg/cleanmyarr
@@ -256,9 +505,13 @@ volumes:
   qbittorrent-config:
   jellyseerr-config:
   recommendarr-data:
+  cross-seed-config:
+  mousehole-data:
   # cleanmyarr-config:
 
 networks:
   mynetwork:
     external: true
-#RADARR_STATIC_CONTAINER_IP=172.2.0.101 SONARR_STATIC_CONTAINER_IP=172.20.0.102 docker compose --profile vpn up -d
+  proxy:
+    external: true
+#RADARR_STATIC_CONTAINER_IP=172.20.0.101 SONARR_STATIC_CONTAINER_IP=172.20.0.102 docker compose --profile vpn up -d
