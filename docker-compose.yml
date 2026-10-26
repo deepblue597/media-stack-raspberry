@@ -248,49 +248,85 @@ services:
       - /mnt/media/mediaStack/music:/music:ro
     restart: unless-stopped
 
-  explo:
-    profiles: ["vpn", "no-vpn"]
-    container_name: explo
-    image: ghcr.io/lumepart/explo:latest
-    networks:
-      - mynetwork
-      - proxy
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.explo.rule=Host(`explo.deepblue597.org`)"
-      - "traefik.http.routers.explo.entrypoints=websecure"
-      - "traefik.http.services.explo.loadbalancer.server.port=7288"
-      - "traefik.docker.network=proxy"
-    environment:
-      - TZ=UTC
-      - WEB_UI=true
-      - UI_USERNAME=${EXPLO_UI_USERNAME}
-      - UI_PASSWORD=${EXPLO_UI_PASSWORD}
-    volumes:
-      - /mnt/mediaSSD/mediaStack/explo-config/.env:/opt/explo/.env
-      - /mnt/mediaSSD/mediaStack/explo-config:/opt/explo/config
-      - /mnt/media/mediaStack/music:/data
-    restart: unless-stopped
+#  explo:
+#    profiles: ["vpn", "no-vpn"]
+#    container_name: explo
+#    image: ghcr.io/lumepart/explo:latest
+#    networks:
+#      - mynetwork
+#      - proxy
+#    labels:
+#      - "traefik.enable=true"
+#      - "traefik.http.routers.explo.rule=Host(`explo.deepblue597.org`)"
+#      - "traefik.http.routers.explo.entrypoints=websecure"
+#      - "traefik.http.services.explo.loadbalancer.server.port=7288"
+#      - "traefik.docker.network=proxy"
+#    environment:
+#      - TZ=UTC
+#      - WEB_UI=true
+#      - UI_USERNAME=${EXPLO_UI_USERNAME}
+#      - UI_PASSWORD=${EXPLO_UI_PASSWORD}
+#    volumes:
+#      - /mnt/mediaSSD/mediaStack/explo-config/.env:/opt/explo/.env
+#      - /mnt/mediaSSD/mediaStack/explo-config:/opt/explo/config
+#      - /mnt/media/mediaStack/music:/data
+#      - /mnt/media/mediaStack/slskd/complete:/slskd
+#    restart: unless-stopped
 
-  aurral:
+#  aurral:
+#    profiles: ["vpn", "no-vpn"]
+#    container_name: aurral
+#    image: ghcr.io/lklynet/aurral:latest
+#    networks:
+#      - mynetwork
+#      - proxy
+#    labels:
+#      - "traefik.enable=true"
+#      - "traefik.http.routers.aurral.rule=Host(`aurral.deepblue597.org`)"
+#      - "traefik.http.routers.aurral.entrypoints=websecure"
+#      - "traefik.http.services.aurral.loadbalancer.server.port=3001"
+#      - "traefik.docker.network=proxy"
+#    environment:
+#      - DOWNLOAD_FOLDER=/app/downloads
+#    volumes:
+#      - /mnt/mediaSSD/mediaStack/aurral-flows:/app/downloads
+#      - /mnt/mediaSSD/mediaStack/aurral-config:/app/backend/data
+#    restart: unless-stopped
+
+  droppedneedle:
     profiles: ["vpn", "no-vpn"]
-    container_name: aurral
-    image: ghcr.io/lklynet/aurral:latest
+    container_name: droppedneedle
+    image: droppedneedle/droppedneedle:latest
     networks:
       - mynetwork
       - proxy
+      - egress6 # IPv6 egress: MetaBrainz blocks our home IPv4
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.aurral.rule=Host(`aurral.deepblue597.org`)"
-      - "traefik.http.routers.aurral.entrypoints=websecure"
-      - "traefik.http.services.aurral.loadbalancer.server.port=3001"
+      - "traefik.http.routers.droppedneedle.rule=Host(`droppedneedle.deepblue597.org`)"
+      - "traefik.http.routers.droppedneedle.entrypoints=websecure"
+      - "traefik.http.services.droppedneedle.loadbalancer.server.port=8688"
       - "traefik.docker.network=proxy"
     environment:
-      - DOWNLOAD_FOLDER=/app/downloads
+      - PUID=1000
+      - PGID=1000
+      - PORT=8688
+      - TZ=UTC
+      - SLSKD_DOWNLOADS_PATH=/slskd-downloads
     volumes:
-      - /mnt/mediaSSD/mediaStack/aurral-flows:/app/downloads
-      - /mnt/mediaSSD/mediaStack/aurral-config:/app/backend/data
+      - /mnt/mediaSSD/mediaStack/droppedneedle-config:/app/config
+      - /mnt/mediaSSD/mediaStack/droppedneedle-cache:/app/cache
+      - /mnt/mediaSSD/mediaStack/droppedneedle-plugins:/app/plugins
+      - /mnt/media/mediaStack/music:/music:rw
+      - /mnt/media/mediaStack/slskd/complete:/slskd-downloads:rw
+      - /mnt/mediaSSD/mediaStack/droppedneedle-config-extra/gai.conf:/etc/gai.conf:ro # prefer IPv6 over IPv4
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8688/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 10m
+      retries: 3
 
   # Watches the music library and automatically downloads missing .lrc lyrics from LRCLIB as new albums land.
   lrcget:
@@ -513,5 +549,8 @@ networks:
   mynetwork:
     external: true
   proxy:
+    external: true
+  # docker network create --ipv6 --subnet fd00:dead:beef::/64 egress6
+  egress6:
     external: true
 #RADARR_STATIC_CONTAINER_IP=172.20.0.101 SONARR_STATIC_CONTAINER_IP=172.20.0.102 docker compose --profile vpn up -d
