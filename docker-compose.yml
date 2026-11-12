@@ -334,22 +334,22 @@ services:
       start_period: 10m
       retries: 3
 
-  # Watches the music library and automatically downloads missing .lrc lyrics from LRCLIB as new albums land.
-  lrcget:
-    profiles: ["vpn", "no-vpn"]
-    container_name: lrcget
-    image: lrcget-cli:patched
-    user: "1000:1000"
-    networks:
-      - mynetwork
-    environment:
-      - LRCGET_DATABASE_PATH=/data/lrcget.db
-      - RUST_LOG=info
-    volumes:
-      - /mnt/mediaSSD/mediaStack/lrcget-config:/data
-      - /mnt/media/mediaStack/music:/music
-    command: ["watch", "/music", "--initial-scan", "--debounce-seconds", "30"]
-    restart: unless-stopped
+  # DISABLED 2026-11-12 (unused). Watches the music library and automatically downloads missing .lrc lyrics from LRCLIB as new albums land.
+  # lrcget:
+  #   profiles: ["vpn", "no-vpn"]
+  #   container_name: lrcget
+  #   image: lrcget-cli:patched
+  #   user: "1000:1000"
+  #   networks:
+  #     - mynetwork
+  #   environment:
+  #     - LRCGET_DATABASE_PATH=/data/lrcget.db
+  #     - RUST_LOG=info
+  #   volumes:
+  #     - /mnt/mediaSSD/mediaStack/lrcget-config:/data
+  #     - /mnt/media/mediaStack/music:/music
+  #   command: ["watch", "/music", "--initial-scan", "--debounce-seconds", "30"]
+  #   restart: unless-stopped
 
   slskd:
     profiles: ["vpn"]
@@ -400,28 +400,28 @@ services:
     #  - 9696:9696
     restart: unless-stopped
 
-  # Recommends movies/shows from Jellyfin watch history and requests them via Jellyseerr.
-  suggestarr:
-    profiles: ["suggestarr"]
-    container_name: suggestarr
-    image: ciuse99/suggestarr:v3.3.0
-    networks:
-      - mynetwork
-      - proxy
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.suggestarr.rule=Host(`suggestarr.deepblue597.org`)"
-      - "traefik.http.routers.suggestarr.entrypoints=websecure"
-      - "traefik.http.services.suggestarr.loadbalancer.server.port=5000"
-      - "traefik.docker.network=proxy"
-    environment:
-      - LOG_LEVEL=info
-      - SUGGESTARR_PORT=5000
-    volumes:
-      - /mnt/mediaSSD/mediaStack/suggestarr-config:/app/config/config_files
-#    ports:
-#      - 5000:5000
-    restart: unless-stopped
+  # DISABLED 2026-11-12 (unused; auto-requests downloads). Recommends movies/shows from Jellyfin watch history and requests them via Jellyseerr.
+  # suggestarr:
+  #   profiles: ["suggestarr"]
+  #   container_name: suggestarr
+  #   image: ciuse99/suggestarr:v3.3.0
+  #   networks:
+  #     - mynetwork
+  #     - proxy
+  #   labels:
+  #     - "traefik.enable=true"
+  #     - "traefik.http.routers.suggestarr.rule=Host(`suggestarr.deepblue597.org`)"
+  #     - "traefik.http.routers.suggestarr.entrypoints=websecure"
+  #     - "traefik.http.services.suggestarr.loadbalancer.server.port=5000"
+  #     - "traefik.docker.network=proxy"
+  #   environment:
+  #     - LOG_LEVEL=info
+  #     - SUGGESTARR_PORT=5000
+  #   volumes:
+  #     - /mnt/mediaSSD/mediaStack/suggestarr-config:/app/config/config_files
+  #   ports:
+  #     - 5000:5000
+  #   restart: unless-stopped
 
   jellyseerr:
     profiles: ["vpn", "no-vpn"]
