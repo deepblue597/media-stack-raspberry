@@ -339,6 +339,7 @@ services:
     profiles: ["vpn", "no-vpn"]
     container_name: lrcget
     image: lrcget-cli:patched
+    pull_policy: never  # local-only build; backup: lrcget-config/lrcget-cli-patched.tar.gz (docker load)
     user: "1000:1000"
     networks:
       - mynetwork
