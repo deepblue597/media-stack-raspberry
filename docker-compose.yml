@@ -76,14 +76,14 @@ services:
     # Uncomment/enable below ports if VPN is used/enabled
     ports:
       #   # qbittorrent ports
-      - 5080:5080
+      # - 5080:5080  # closed: qbit.deepblue597.org (Authentik); internal vpn:5080
       - 6881:6881
       - 6881:6881/udp
       # prowlarr ports
       # - 9696:9696  # closed: reach via prowlarr.deepblue597.org (Authentik); *arrs use vpn:9696 internally
       - 5010:5010
       # slskd ports
-      - 5030:5030
+      # - 5030:5030  # closed: slskd.deepblue597.org (Authentik); internal vpn:5030
       - 50300:50300
     restart: "unless-stopped"
 
