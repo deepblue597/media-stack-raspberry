@@ -334,22 +334,22 @@ services:
       start_period: 10m
       retries: 3
 
-  # DISABLED 2026-11-12 (unused). Watches the music library and automatically downloads missing .lrc lyrics from LRCLIB as new albums land.
-  # lrcget:
-  #   profiles: ["vpn", "no-vpn"]
-  #   container_name: lrcget
-  #   image: lrcget-cli:patched
-  #   user: "1000:1000"
-  #   networks:
-  #     - mynetwork
-  #   environment:
-  #     - LRCGET_DATABASE_PATH=/data/lrcget.db
-  #     - RUST_LOG=info
-  #   volumes:
-  #     - /mnt/mediaSSD/mediaStack/lrcget-config:/data
-  #     - /mnt/media/mediaStack/music:/music
-  #   command: ["watch", "/music", "--initial-scan", "--debounce-seconds", "30"]
-  #   restart: unless-stopped
+  # Watches the music library and automatically downloads missing .lrc lyrics from LRCLIB as new albums land.
+  lrcget:
+    profiles: ["vpn", "no-vpn"]
+    container_name: lrcget
+    image: lrcget-cli:patched
+    user: "1000:1000"
+    networks:
+      - mynetwork
+    environment:
+      - LRCGET_DATABASE_PATH=/data/lrcget.db
+      - RUST_LOG=info
+    volumes:
+      - /mnt/mediaSSD/mediaStack/lrcget-config:/data
+      - /mnt/media/mediaStack/music:/music
+    command: ["watch", "/music", "--initial-scan", "--debounce-seconds", "30"]
+    restart: unless-stopped
 
   slskd:
     profiles: ["vpn"]
