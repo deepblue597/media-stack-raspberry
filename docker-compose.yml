@@ -56,14 +56,17 @@ services:
       - "traefik.http.routers.qbittorrent.entrypoints=websecure"
       - "traefik.http.routers.qbittorrent.tls=true"
       - "traefik.http.routers.qbittorrent.service=qbittorrent"
+      - "traefik.http.routers.qbittorrent.middlewares=authentik-forwardauth@file"
       - "traefik.http.services.qbittorrent.loadbalancer.server.port=5080"
       - "traefik.http.routers.prowlarr.rule=Host(`prowlarr.deepblue597.org`)"
       - "traefik.http.routers.prowlarr.entrypoints=websecure"
+      - "traefik.http.routers.prowlarr.middlewares=authentik-forwardauth@file"
       - "traefik.http.routers.prowlarr.service=prowlarr"
       - "traefik.http.services.prowlarr.loadbalancer.server.port=9696"
       - "traefik.http.routers.slskd.rule=Host(`slskd.deepblue597.org`)"
       - "traefik.http.routers.slskd.entrypoints=websecure"
       - "traefik.http.routers.slskd.service=slskd"
+      - "traefik.http.routers.slskd.middlewares=authentik-forwardauth@file"
       - "traefik.http.services.slskd.loadbalancer.server.port=5030"
       - "traefik.docker.network=proxy"
 
@@ -77,7 +80,7 @@ services:
       - 6881:6881
       - 6881:6881/udp
       # prowlarr ports
-      - 9696:9696
+      # - 9696:9696  # closed: reach via prowlarr.deepblue597.org (Authentik); *arrs use vpn:9696 internally
       - 5010:5010
       # slskd ports
       - 5030:5030
@@ -155,6 +158,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.radarr.rule=Host(`radarr.deepblue597.org`)"
       - "traefik.http.routers.radarr.entrypoints=websecure"
+      - "traefik.http.routers.radarr.middlewares=authentik-forwardauth@file"
       - "traefik.http.services.radarr.loadbalancer.server.port=7878"
       - "traefik.docker.network=proxy"
     environment:
@@ -185,6 +189,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.sonarr.rule=Host(`sonarr.deepblue597.org`)"
       - "traefik.http.routers.sonarr.entrypoints=websecure"
+      - "traefik.http.routers.sonarr.middlewares=authentik-forwardauth@file"
       - "traefik.http.services.sonarr.loadbalancer.server.port=8989"
       - "traefik.docker.network=proxy"
     environment:
@@ -212,6 +217,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.lidarr.rule=Host(`lidarr.deepblue597.org`)"
       - "traefik.http.routers.lidarr.entrypoints=websecure"
+      - "traefik.http.routers.lidarr.middlewares=authentik-forwardauth@file"
       - "traefik.http.services.lidarr.loadbalancer.server.port=8686"
       - "traefik.docker.network=proxy"
     environment:
@@ -394,28 +400,27 @@ services:
     #  - 9696:9696
     restart: unless-stopped
 
-  recommendarr:
-    profiles: ["recommendarr"]
-    container_name: recommendarr
-    image: tannermiddleton/recommendarr:v1.4.4
+  # Recommends movies/shows from Jellyfin watch history and requests them via Jellyseerr.
+  suggestarr:
+    profiles: ["suggestarr"]
+    container_name: suggestarr
+    image: ciuse99/suggestarr:v3.3.0
     networks:
       - mynetwork
       - proxy
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.recommendarr.rule=Host(`recommendarr.deepblue597.org`)"
-      - "traefik.http.routers.recommendarr.entrypoints=websecure"
-      - "traefik.http.services.recommendarr.loadbalancer.server.port=3000"
+      - "traefik.http.routers.suggestarr.rule=Host(`suggestarr.deepblue597.org`)"
+      - "traefik.http.routers.suggestarr.entrypoints=websecure"
+      - "traefik.http.services.suggestarr.loadbalancer.server.port=5000"
       - "traefik.docker.network=proxy"
     environment:
-      - NODE_ENV=production
-      - DOCKER_ENV=true
-      - PORT=3000
-      - PUBLIC_URL=https://recommendarr.deepblue597.org # Change this public URL if you are accessing recommendarr on a domain
+      - LOG_LEVEL=info
+      - SUGGESTARR_PORT=5000
     volumes:
-      - /mnt/mediaSSD/mediaStack/recommendarr-data:/app/server/data
+      - /mnt/mediaSSD/mediaStack/suggestarr-config:/app/config/config_files
 #    ports:
-#      - 3000:3000
+#      - 5000:5000
     restart: unless-stopped
 
   jellyseerr:
@@ -540,7 +545,7 @@ volumes:
   jellyfin-config:
   qbittorrent-config:
   jellyseerr-config:
-  recommendarr-data:
+  suggestarr-config:
   cross-seed-config:
   mousehole-data:
   # cleanmyarr-config:

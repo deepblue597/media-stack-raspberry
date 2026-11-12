@@ -22,7 +22,7 @@ flowchart TB
     Traefik --> Aurral
     Traefik --> Jellyfin
     Traefik --> Jellyseerr
-    Traefik --> Recommendarr
+    Traefik --> Suggestarr
     Traefik -->|"labels on vpn container"| Prowlarr
     Traefik -->|"labels on vpn container"| Qbittorrent
     Traefik -->|"labels on vpn container"| Slskd
@@ -70,9 +70,8 @@ flowchart TB
     Jellyseerr -->|requests| Radarr
     Jellyseerr -->|requests| Sonarr
 
-    Recommendarr["recommendarr (optional, AI)"] -->|reads history/library| Jellyfin
-    Recommendarr -->|reads library| Radarr
-    Recommendarr -->|reads library| Sonarr
+    Suggestarr["suggestarr (optional)"] -->|reads watch history| Jellyfin
+    Suggestarr -->|requests suggestions| Jellyseerr
 ```
 
 ## Networks
@@ -111,7 +110,7 @@ Two physical locations back all the volumes:
 
 - `/mnt/mediaSSD/mediaStack/*-config` — fast SSD storage for every app's config/database
   (Radarr, Sonarr, Lidarr, Prowlarr, qBittorrent, Jellyfin, Jellyseerr, Navidrome, explo,
-  aurral, lrcget, slskd, cross-seed, recommendarr).
+  aurral, lrcget, slskd, cross-seed, suggestarr).
 - `/mnt/media/mediaStack/*` — bulk spinning storage for actual media content:
   `torrent-downloads`, `music`, `slskd` (Soulseek downloads), and `Books`.
 
@@ -124,5 +123,5 @@ metadata); media itself lives on bulk storage since it's large and sequential.
   (qBittorrent, Prowlarr, slskd, mousehole).
 - `no-vpn` — the same download-facing services, attached directly to `mynetwork`
   instead of tunneling through gluetun. Not recommended for torrenting.
-- `recommendarr` — opt-in, brings up the AI recommendation service separately from the
-  above two.
+- `suggestarr` — opt-in, brings up the recommendation service (Suggestarr) separately
+  from the above two.

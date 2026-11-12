@@ -2,7 +2,7 @@
 
 A self-hosted media stack for movies, TV, and music: acquisition (*arr apps,
 Prowlarr, qBittorrent, slskd), streaming (Jellyfin, Navidrome), discovery/requests
-(Jellyseerr, explo, recommendarr), all torrent/Soulseek traffic tunneled through
+(Jellyseerr, explo, Suggestarr), all torrent/Soulseek traffic tunneled through
 ProtonVPN, and every service published on its own `*.deepblue597.org` subdomain via
 Traefik.
 
@@ -28,7 +28,7 @@ boundary, and the media pipeline fit together.
 | **lrcget** | Watches the music library and auto-downloads missing `.lrc` lyrics from LRCLIB |
 | **Jellyfin** | Media server/streamer for movies & TV (NVIDIA GPU transcoding) |
 | **Jellyseerr** | Request management front-end for Jellyfin |
-| **recommendarr** *(optional)* | AI-powered movie/show recommendations from an OpenAI-compatible API + Sonarr/Radarr/Jellyfin data |
+| **Suggestarr** *(optional)* | Recommends movies/shows from Jellyfin watch history and auto-requests them through Jellyseerr |
 | **Traefik** *(separate compose file)* | Reverse proxy/TLS termination, routes each subdomain to its container |
 
 ## Requirements
@@ -66,7 +66,7 @@ cat .htpasswd | sed -e s/\\$/\\$\\$/g
 
 Point DNS `A`/`AAAA` records for each subdomain used in `docker-compose.yml`'s Traefik
 labels (`radarr.`, `sonarr.`, `lidarr.`, `prowlarr.`, `qbit.`, `slskd.`, `navidrome.`,
-`explo.`, `aurral.`, `jellyfin.`, `jellyseerr.`, `recommendarr.`) at the host running
+`explo.`, `aurral.`, `jellyfin.`, `jellyseerr.`, `suggestarr.`) at the host running
 Traefik.
 
 ## Environment variables (`.env`)
@@ -91,8 +91,8 @@ docker compose --profile vpn up -d
 # Without VPN (discouraged)
 docker compose --profile no-vpn up -d
 
-# Add optional AI recommendations
-COMPOSE_PROFILES=vpn,recommendarr docker compose up -d
+# Add optional recommendations (Suggestarr)
+COMPOSE_PROFILES=vpn,suggestarr docker compose up -d
 ```
 
 Running `docker compose up -d` with no profile deploys nothing — this is intentional,
@@ -163,19 +163,20 @@ filled-in file** — it contains live credentials.
 - See the [Overseerr docs](https://docs.overseerr.dev/) (Jellyseerr is a fork of
   Overseerr) for anything not covered by the wizard
 
-## Configure recommendarr (optional)
+## Configure Suggestarr (optional)
 
-Recommendarr needs an OpenAI-compatible API (self-hosted via Ollama/LM Studio, or a
-service like [openrouter.ai](https://openrouter.ai)) plus at least one model.
+Suggestarr reads your Jellyfin watch history, finds similar titles on TMDB, and sends
+requests to Jellyseerr (which then hands them to Radarr/Sonarr). You need a free
+[TMDB API key](https://www.themoviedb.org/settings/api). An OpenAI-compatible LLM is
+optional, for AI-based suggestions.
 
-- Open `https://recommendarr.deepblue597.org`, log in with default `admin`/`1234`, and
-  change the password immediately
-- Settings → AI service → set API URL/key, fetch models, set max tokens (< 2000) and
-  temperature (~0.8)
-- Settings → Sonarr/Radarr/Jellyfin → add each with its internal URL
-  (`http://sonarr:8989`, `http://radarr:7878`, `http://jellyfin:8096`) and API key
-- Recommendations tab → pick a model, enable Jellyfin watch history, pick genres →
-  Discover
+- Open `https://suggestarr.deepblue597.org` and follow the setup wizard
+- TMDB → paste your API key
+- Media server → Jellyfin, URL `http://jellyfin:8096`, API key from Jellyfin
+  Dashboard → API Keys, then pick the users/libraries to use
+- Seer → URL `http://jellyseerr:5055`, API key from Jellyseerr Settings → General
+- Set the schedule and how many suggestions per watched item; use the connection
+  tests in each step
 
 ## Disclaimer
 
